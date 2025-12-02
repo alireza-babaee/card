@@ -1,28 +1,27 @@
-This repository contains a clean and minimal card UI component built using HTML and CSS.
-The project is designed to be simple, lightweight, and easy to reuse in other front-end layouts.
+# Modern Card UI Component
 
-Live Demo :
+![Card Screenshot](screenshot.png)
+
+A clean, responsive, and modern card UI built with pure HTML & CSS.  
+Perfect for portfolios, dashboards, pricing cards, or any web project.
+
+## Live Demo
 https://alireza-babaee.github.io/card/
 
-Features :
+## Features
+- Fully responsive (mobile ↔ desktop)
+- Smooth hover effects
+- Easy to customize
+- No JavaScript required
+- Lightweight & fast
 
-Modern and minimal card design
+## How to Use
+1. Clone or download the repo
+2. Open `index.html` in your browser
+3. Copy the code and paste into your project
+4. Edit `style.css` to match your style
 
-Responsive layout on different screen sizes
+## License
+[MIT License](LICENSE) – free to use and modify
 
-Smooth hover interaction
-
-Easily customizable structure and styles
-
-Project Structure:
-card/
-│── index.html
-└── style.css
-
-How to Use :
-
-Clone or download the repository.
-
-Open index.html in any modern web browser.
-
-Customize styles in style.css if required
+Made with love by [alireza-babaee](https://github.com/alireza-babaee)
