@@ -11,16 +11,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: جمع‌آوری آمار
-        uses: jgehrcke/github-repo-stats@v1.2.0  # ← ورژن stable
-        with:
-          repository: alireza-babaee/card
-          ghtoken: ${{ secrets.ghrs_github_api_token }}  # ← نام secret درست
+      - name: دانلود آمار ۱۴ روز اخیر
+        run: |
+          curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/alireza-babaee/card/traffic/views > views.json
+          curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/alireza-babaee/card/traffic/clones > clones.json
 
-      - name: ذخیره آمار
+      - name: ذخیره و آپدیت total
+        run: |
+          mkdir -p stats
+          echo "$(date): Views: $(jq '.count' views.json), Unique: $(jq '.uniques' views.json)" >> stats/views-log.txt
+          echo "$(date): Clones: $(jq '.count' clones.json), Unique: $(jq '.uniques' clones.json)" >> stats/clones-log.txt
+          # محاسبه total ساده (جمع لاگ‌ها)
+          awk '{sum += $NF} END {print "Total Views: " sum}' stats/views-log.txt > stats/total-views.txt
+          awk '{sum += $NF} END {print "Total Clones: " sum}' stats/clones-log.txt > stats/total-clones.txt
+
+      - name: کامیت
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
+          git add stats/
           git commit -m "به‌روزرسانی آمار $(date +%F)" || echo "تغییری نبود"
           git push
