@@ -2,16 +2,19 @@ name: جمع‌آوری آمار بازدید و کلون
 
 on:
   schedule:
-    - cron: '0 3 * * *'
-  workflow_dispatch:
+    - cron: '0 3 * * *'   # هر روز ساعت ۳:۳۰ صبح ایران
+  workflow_dispatch:      # امکان ران دستی
 
 jobs:
   stats:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # ← این خط حیاتیه! اجازه push می‌ده
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: دانلود آمار ۱۴ روز اخیر
+      - name: دانلود آمار
         run: |
           curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
                -H "Accept: application/vnd.github.v3+json" \
@@ -20,16 +23,19 @@ jobs:
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/alireza-babaee/card/traffic/clones > clones.json
 
-      - name: ذخیره و آپدیت total
+      - name: آپدیت آمار و محاسبه total
         run: |
           mkdir -p stats
-          echo "$(date): Views: $(jq '.count' views.json), Unique: $(jq '.uniques' views.json)" >> stats/views-log.txt
-          echo "$(date): Clones: $(jq '.count' clones.json), Unique: $(jq '.uniques' clones.json)" >> stats/clones-log.txt
-          # محاسبه total ساده (جمع لاگ‌ها)
-          awk '{sum += $NF} END {print "Total Views: " sum}' stats/views-log.txt > stats/total-views.txt
-          awk '{sum += $NF} END {print "Total Clones: " sum}' stats/clones-log.txt > stats/total-clones.txt
+          
+          # ذخیره لاگ روزانه
+          echo "$(date '+%Y-%m-%d %H:%M'): Views $(jq '.count' views.json) (Unique: $(jq '.uniques' views.json))" >> stats/views-log.txt
+          echo "$(date '+%Y-%m-%d %H:%M'): Clones $(jq '.count' clones.json) (Unique: $(jq '.uniques' clones.json))" >> stats/clones-log.txt
+          
+          # محاسبه total از تمام لاگ‌ها
+          awk '/Views/ {sum += $(NF-3)} END {print "Total Views: " sum}' stats/views-log.txt > stats/total-views.txt
+          awk '/Clones/ {sum += $(NF-3)} END {print "Total Clones: " sum}' stats/clones-log.txt > stats/total-clones.txt
 
-      - name: کامیت
+      - name: کامیت و push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
