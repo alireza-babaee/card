@@ -12,10 +12,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: جمع‌آوری آمار
-        uses: jgehrcke/github-repo-stats@v1.2.0
+        uses: jgehrcke/github-repo-stats@v1.2.0  # ← ورژن stable
         with:
-          token: ${{ secrets.GH_TOKEN }}
-          repositories: 'alireza-babaee/card'
+          repository: alireza-babaee/card
+          ghtoken: ${{ secrets.ghrs_github_api_token }}  # ← نام secret درست
 
       - name: ذخیره آمار
         run: |
