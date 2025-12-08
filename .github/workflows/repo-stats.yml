@@ -18,10 +18,10 @@ jobs:
         run: |
           curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
                -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/repos/alireza-babaee/SimpleCalculator/traffic/views > views.json
+               https://api.github.com/repos/alireza-babaee/card/traffic/views > views.json
           curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
                -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/repos/alireza-babaee/SimpleCalculator/traffic/clones > clones.json
+               https://api.github.com/repos/alireza-babaee/card/traffic/clones > clones.json
 
       - name: آپديت آمار و total
         run: |
