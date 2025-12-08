@@ -1,44 +1,93 @@
-name: جمع‌آوری آمار بازدید و کلون
+name: جمع‌آوری آمار بازدید و کلون (دائمی)
 
 on:
   schedule:
-    - cron: '0 3 * * *'   # هر روز ساعت ۳:۳۰ صبح ایران
-  workflow_dispatch:      # امکان ران دستی
+    - cron: '30 0 * * *'  # هر روز ساعت 04:00 به وقت UTC ≈ 07:30 صبح ایران
+  workflow_dispatch:
 
 jobs:
-  stats:
+  update-traffic-stats:
     runs-on: ubuntu-latest
     permissions:
-      contents: write       # ← این خط حیاتیه! اجازه push می‌ده
+      contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: دانلود آمار
+      - name: دریافت آمار بازدید و کلون
+        id: traffic
         run: |
-          curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
-               -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/repos/alireza-babaee/card/traffic/views > views.json
-          curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
-               -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/repos/alireza-babaee/card/traffic/clones > clones.json
+          AUTH_HEADER="Authorization: token ${{ secrets.GH_TOKEN }}"
+          ACCEPT_HEADER="Accept: application/vnd.github+json"
+          API_VERSION="X-GitHub-Api-Version: 2022-11-28"
 
-      - name: آپدیت آمار و محاسبه total
+          # Views
+          http_code=$(curl -s -o views.json -w "%{http_code}" \
+            -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H "$API_VERSION" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/views)
+
+          if [[ $http_code -eq 204 ]] || [[ ! -s views.json ]]; then
+            echo '{"count":0,"uniques":0,"views":[]}' > views.json
+          fi
+
+          # Clones
+          http_code=$(curl -s -o clones.json -w "%{http_code}" \
+            -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H "$API_VERSION" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/clones)
+
+          if [[ $http_code -eq 204 ]] || [[ ! -s clones.json ]]; then
+            echo '{"count":0,"uniques":0,"clones":[]}' > clones.json
+          fi
+
+      - name: محاسبه و ذخیره آمار دائمی
         run: |
           mkdir -p stats
-          
-          # ذخیره لاگ روزانه
-          echo "$(date '+%Y-%m-%d %H:%M'): Views $(jq '.count' views.json) (Unique: $(jq '.uniques' views.json))" >> stats/views-log.txt
-          echo "$(date '+%Y-%m-%d %H:%M'): Clones $(jq '.count' clones.json) (Unique: $(jq '.uniques' clones.json))" >> stats/clones-log.txt
-          
-          # محاسبه total از تمام لاگ‌ها
-          awk '/Views/ {sum += $(NF-3)} END {print "Total Views: " sum}' stats/views-log.txt > stats/total-views.txt
-          awk '/Clones/ {sum += $(NF-3)} END {print "Total Clones: " sum}' stats/clones-log.txt > stats/total-clones.txt
 
-      - name: کامیت و push
+          TODAY=$(date '+%Y-%m-%d %H:%M')
+
+          # دریافت تعداد امروز (ممکنه صفر باشه)
+          TODAY_VIEWS=$(jq '.count' views.json | jq '.count // 0')
+          TODAY_UNIQ_VIEWS=$(jq '.uniques // 0' views.json)
+          TODAY_CLONES=$(jq '.count // 0' clones.json)
+          TODAY_UNIQ_CLONES=$(jq '.uniques // 0' clones.json)
+
+          # اضافه کردن به لاگ متنی
+          echo "$TODAY: Views $TODAY_VIEWS (Unique: $TODAY_UNIQ_VIEWS)" >> stats/views-log.txt
+          echo "$TODAY: Clones $TODAY_CLONES (Unique: $TODAY_UNIQ_CLONES)" >> stats/clones-log.txt
+
+          # محاسبه total دقیق با jq (خیلی مطمئن‌تر از awk)
+          TOTAL_VIEWS=0
+          if [[ -f stats/views-log.txt ]]; then
+            TOTAL_VIEWS=$(awk '{gsub(/\(.*$/,"",$4); sum += $4} END {print sum+0}' stats/views-log.txt)
+          fi
+
+          TOTAL_CLONES=0
+          if [[ -f stats/clones-log.txt ]]; then
+            TOTAL_CLONES=$(awk '{gsub(/\(.*$/,"",$4); sum += $4} END {print sum+0}' stats/clones-log.txt)
+          fi
+
+          # ذخیره total در فایل‌های جداگانه (برای نمایش در README راحت‌تر)
+          echo "$TOTAL_VIEWS" > stats/total-views.txt
+          echo "$TOTAL_CLONES" > stats/total-clones.txt
+
+          # ذخیره یک فایل JSON تمیز برای استفاده آینده
+          cat > stats/summary.json <<EOF
+          {
+            "last_update": "$TODAY",
+            "today_views": $TODAY_VIEWS,
+            "today_unique_views": $TODAY_UNIQ_VIEWS,
+            "today_clones": $TODAY_CLONES,
+            "today_unique_clones": $TODAY_UNIQ_CLONES,
+            "total_views": $TOTAL_VIEWS,
+            "total_clones": $TOTAL_CLONES
+          }
+          EOF
+
+      - name: کامیت و Push (فقط اگر تغییر داشت)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add stats/
-          git commit -m "به‌روزرسانی آمار $(date +%F)" || echo "تغییری نبود"
+          git commit -m "به‌روزرسانی آمار بازدید و کلون - $(date +%F)" || exit 0
           git push
