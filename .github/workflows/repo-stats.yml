@@ -1,0 +1,42 @@
+name: جمع‌آوري آمار بازديد و کلون
+
+on:
+  schedule:
+    - cron: '0 3 * * *'     # هر روز ساعت ?:?? صبح ايران خودکار
+  workflow_dispatch:        # امکان ران دستي
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # اجازه push
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: دانلود آمار از گيت‌هاب
+        run: |
+          curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/alireza-babaee/card/traffic/views > views.json
+          curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/alireza-babaee/card/traffic/clones > clones.json
+
+      - name: آپديت آمار و total
+        run: |
+          mkdir -p stats
+          
+          echo "$(date '+%Y-%m-%d %H:%M'): Views $(jq '.count' views.json) (Unique: $(jq '.uniques' views.json))" >> stats/views-log.txt
+          echo "$(date '+%Y-%m-%d %H:%M'): Clones $(jq '.count' clones.json) (Unique: $(jq '.uniques' clones.json))" >> stats/clones-log.txt
+          
+          awk '/Views/ {sum += $(NF-3)} END {print "Total Views: " sum}' stats/views-log.txt > stats/total-views.txt
+          awk '/Clones/ {sum += $NF} END {print "Total Clones: " sum}' stats/clones-log.txt > stats/total-clones.txt
+
+      - name: کاميت و push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stats/
+          git commit -m "به‌روزرساني آمار $(date +%F)" || echo "تغييري نبود"
+          git push
